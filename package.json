@@ -1,7 +1,28 @@
 {
   "name": "otopilot",
-  "version": "1.2.0",
+  "version": "1.26.0",
   "description": "Video icerik otomasyon paneli (localhost) — YouTube, Shorts, Reels, TikTok",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wj-sidiss/otopilot.git"
+  },
+  "homepage": "https://github.com/wj-sidiss/otopilot#readme",
+  "bugs": {
+    "url": "https://github.com/wj-sidiss/otopilot/issues"
+  },
+  "keywords": [
+    "video",
+    "youtube",
+    "shorts",
+    "automation",
+    "ffmpeg",
+    "ai",
+    "text-to-speech",
+    "subtitles",
+    "claude-code",
+    "open-source"
+  ],
   "private": true,
   "scripts": {
     "start": "node panel.js",
@@ -10,11 +31,22 @@
     "test:panel": "node --test --test-concurrency=2 \"test/**/*.test.js\"",
     "test:indirici": "node --test \"video-indirici/test/**/*.test.js\"",
     "test:aiinfapp": "node --test \"ai-infapp/test/**/*.test.js\"",
-    "egitim": "node lib/egitim.js"
+    "kapi": "node kapi.js",
+    "surum": "node surum.js",
+    "cinecode-guncelle": "node araclar/cinecode-esitle.js",
+    "egitim": "node lib/egitim.js",
+    "kaynak-dene": "node kaynak-dene.js",
+    "dil:cikar": "node lib/dil-cikar.js",
+    "dil:yay": "node lib/dil-yay.js",
+    "guncelle": "node lib/guncelle.js",
+    "diksiyon": "node diksiyon.js",
+    "medya": "node araclar/medya.js",
+    "ses-denge": "node araclar/ses-denge.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
-    "msedge-tts": "^2.1.0"
+    "msedge-tts": "^2.1.0",
+    "ws": "8.22.0"
   },
   "engines": {
     "node": ">=22"

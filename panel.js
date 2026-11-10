@@ -158,6 +158,8 @@ const ORNEK_METIN = { en: "This is a short voice test for your channel.", tr: "B
 // ---------------------------------------------------------------- API yolu tablosu
 const GET = {}, POST = {};
 
+require("./lib/panel-studyo").ekle(GET, POST);
+
 GET["/api/ozellikler"] = async () => {
   const dir = path.join(KOK, "video-indirici", "server.js");
   const [indiriciDurum, aiInfappDurum] = await Promise.all([indiriciTani(INDIRICI_PORT, 400), aiInfapp.tani(AIINFAPP_PORT, 400)]);
@@ -371,15 +373,20 @@ GET["/api/performans"] = async () => yayin.performansOzeti();
 POST["/api/ses-testi"] = async c => {
   const ayar = ortak.ayarOku();
   const motor = c.b.motor || "otomatik";
-  if (!["otomatik", "edge", "azure", "piper"].includes(motor)) throw new HttpHata(400, "motor", "Motor otomatik, edge, azure ya da piper olmalı.");
+  // gecerli motorlar tek yerden (konu.json ve CLI ile ayni liste; 'sistem' dahil)
+  if (typeof motor !== "string" || !ortak.SES_MOTORLARI.includes(motor))
+    throw new HttpHata(400, "motor", "Motor şunlardan biri olmalı: " + ortak.SES_MOTORLARI.join(", ") + ".");
   const dil = c.b.dil || ayar.dil || "en";
   if (typeof dil !== "string" || !/^[a-z]{2}$/.test(dil)) throw new HttpHata(400, "dil", "Dil iki küçük harf olmalı.");
   const ses = c.b.ses || (dil === ayar.dil ? ayar.ses : ortak.varsayilanSes(dil));
-  if (typeof ses !== "string" || !/^[A-Za-z0-9._-]{1,80}$/.test(ses)) throw new HttpHata(400, "ses", "Ses adı geçersiz.");
+  // Edge/Azure/Piper ses adı ya da yerel VoxCPM2 sesi: voxcpm:<ad> / voxcpm:<ad>/<çeşit>
+  if (typeof ses !== "string" || !(/^[A-Za-z0-9._-]{1,80}$/.test(ses) || /^voxcpm:[a-z0-9_]{1,60}(\/\d{1,3})?$/.test(ses))) throw new HttpHata(400, "ses", "Ses adı geçersiz.");
   const id = crypto.randomBytes(12).toString("hex");
   fs.mkdirSync(SESTESTI_DIZIN, { recursive: true });
   const cikti = path.join(SESTESTI_DIZIN, id + ".mp3");
-  const r = await kisaCalistir("seslendir.js", ["--test", cikti, "--ses", ses, "--motor", motor, "--metin", ORNEK_METIN[dil] || ORNEK_METIN.en], 70000);
+  // VoxCPM2 her çağrıda modeli ekran kartına yükler (10-20 sn); kısa bir örnek için bile daha uzun süre tanınır
+  const voxcpm = motor === "voxcpm" || ses.startsWith("voxcpm:");
+  const r = await kisaCalistir("seslendir.js", ["--test", cikti, "--ses", ses, "--motor", motor, "--metin", ORNEK_METIN[dil] || ORNEK_METIN.en], voxcpm ? 240000 : 70000);
   if (r.kod !== 0 || !fs.existsSync(cikti)) {
     try { fs.unlinkSync(cikti); } catch (e) {}
     const c2 = ortak.hataCevir(r.cikti);
@@ -423,6 +430,26 @@ function medya(c, yol) {
     const sec = { tur: "video/mp4" };
     if (new URL(c.req.url, "http://localhost").searchParams.get("indir") === "1") sec.indirAd = is + "-" + ad;
     return H.dosyaAkit(c.req, c.res, p, sec);
+  }
+  if (tur === "studyo" && parca[1] === "_gecis") {
+    // /studyo/_gecis/<kod>.mp4 : gecis onizlemesi (ilk istekte ffmpeg ile uretilir, sonra onbellekten)
+    const m = parca.length === 3 && /^([a-z-]{2,20})\.mp4$/.exec(parca[2] || "");
+    if (!m) throw new HttpHata(400, "yol", "Geçersiz adres.");
+    const S = require("./studyo.js");
+    if (!S.GECISLER[m[1]] || m[1] === "kes") throw new HttpHata(404, "gecis", "Böyle bir geçiş yok.");
+    let p;
+    try { p = S.gecisOnizleme(m[1]); } catch (e) { throw new HttpHata(500, "gecis", "Önizleme üretilemedi: " + String(e.message).slice(0, 120)); }
+    return H.dosyaAkit(c.req, c.res, p, { tur: "video/mp4" });
+  }
+  if (tur === "studyo") {
+    // /studyo/<ad>/girdi/<foto> (yuklenen fotograf) ve /studyo/<ad>/klip/<dosya> (uretilen klip)
+    const is = isAl(parca[1], true), alt = parca[2], dosya = parca[3];
+    if (parca.length !== 4 || !["girdi", "klip"].includes(alt) || !dosya || path.basename(dosya) !== dosya || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,120}\.(jpe?g|png|webp|mp4)$/i.test(dosya))
+      throw new HttpHata(400, "yol", "Geçersiz adres.");
+    const d = path.join(ortak.isDizin(is), alt === "girdi" ? "girdi" : "Clips");
+    const p = path.join(d, dosya);
+    if (!ortak.yolIcinde(d, p)) throw new HttpHata(403, "yol", "Bu yola erişim yok.");
+    return H.dosyaAkit(c.req, c.res, p, /\.mp4$/i.test(dosya) ? { tur: "video/mp4" } : { onbellek: "private, max-age=60" });
   }
   if (tur === "indir") {
     const is = isAl(parca[1]);
@@ -484,7 +511,7 @@ async function isle(req, res) {
     const fn = tablo && Object.prototype.hasOwnProperty.call(tablo, yol) ? tablo[yol] : null;
     if (!fn) throw new HttpHata(404, "yok", "Bulunamadı.");
     const c = { req, res, q: u.searchParams, b: {} };
-    if (yontem === "POST") c.b = await H.govdeOku(req);
+    if (yontem === "POST") c.b = await H.govdeOku(req, yol === "/api/studyo/yukle" ? require("./lib/panel-studyo").YUKLE_SINIRI : undefined);
     const sonuc = await fn(c);
     return H.json(res, 200, sonuc === undefined ? { ok: true } : sonuc);
   }

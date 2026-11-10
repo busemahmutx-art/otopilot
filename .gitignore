@@ -13,6 +13,11 @@ onizleme/
 *.jpeg
 *.png
 
+# kodla film (cinecode) film klasorleri ve python onbellegi
+Filmler/
+Films/
+__pycache__/
+
 # node
 # NOT: package-lock.json depoya GIRER (herkes ayni surumleri kursun; PANEL.bat "npm ci" kullanir)
 node_modules/
@@ -85,3 +90,6 @@ video-indirici/kesfet-veri.json
 
 # Egitim PDF isareti: panel egitim PDF lerini masaustune bir kez indirir (lib/egitim.js)
 .egitim-indirildi
+
+# VoxCPM2 hazir seslerinin ornek dinleme dosyalari depoya GIRER (yukaridaki *.mp3 kuralinin istisnasi)
+!sesler/voxcpm2/*/ornek_okuma.mp3

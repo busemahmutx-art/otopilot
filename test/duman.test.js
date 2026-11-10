@@ -13,7 +13,7 @@ const { spawn, spawnSync } = require("child_process");
 const Module = require("module");
 
 const KOK = path.resolve(__dirname, "..");
-const ATLANAN_KLASOR = new Set(["node_modules", ".git", "uretim", "onizleme", "tmp-test", "indirilenler", "log", "marka", "coverage"]);
+const ATLANAN_KLASOR = new Set(["node_modules", ".git", "uretim", "onizleme", "tmp-test", "indirilenler", "log", "marka", "coverage", "Filmler", "Films"]);   // Filmler/ Films/: kodla film calisma klasorleri, .gitignore'da (repoya girmez)
 const KOD_UZ = new Set([".js", ".cjs", ".mjs"]);
 const METIN_UZ = new Set([".js", ".cjs", ".mjs", ".json", ".md", ".html", ".css", ".bat", ".cmd", ".sh", ".yml", ".yaml", ".txt", ".ornek", ".svg", ".upstream", ".gitignore", ".gitattributes"]);
 // Uzantisiz lisans metinleri de taranir (LICENSE, LICENSE.upstream)
@@ -35,11 +35,12 @@ function yuru(dizin, cikti, kok) {
   return cikti;
 }
 const goreli = y => path.relative(KOK, y).replace(/\\/g, "/");
-const TUM = yuru(KOK, []);
+// gercek anahtar dosyalari ASLA okunmaz: .env ve .env.<ad> (yalniz .env.ornek serbest). Kullanicinin kendi .env'i varsa tarama DISINDA tutulur
+// (eskiden listeye girip testi dusuruyordu: yalniz temiz klonlarda yesildi)
+const gizliDosyaMi = y => /^\.env(\..+)?$/.test(path.basename(y)) && path.basename(y) !== ".env.ornek";
+const TUM = yuru(KOK, []).filter(y => !gizliDosyaMi(y));
 const adUzanti = y => { const ad = path.basename(y); return ad.startsWith(".") && ad.indexOf(".", 1) < 0 ? ad : path.extname(ad).toLowerCase(); };
 const KODLAR = TUM.filter(y => KOD_UZ.has(path.extname(y).toLowerCase()));
-// gercek anahtar dosyalari ASLA okunmaz: .env ve .env.<ad> (yalniz .env.ornek serbest)
-const gizliDosyaMi = y => /^\.env(\..+)?$/.test(path.basename(y)) && path.basename(y) !== ".env.ornek";
 const METINLER = TUM.filter(y => !gizliDosyaMi(y) && (METIN_UZ.has(adUzanti(y)) || METIN_AD.test(path.basename(y)) || path.basename(y) === ".env.ornek") && path.basename(y) !== "package-lock.json");
 
 async function sinirli(isler, n, calistir) {
@@ -256,7 +257,7 @@ test(".env hijyeni: .gitignore .env/uretim/panel-ayar.json'u yok sayar; .env.orn
   for (const a of atamalar) assert.ok(a[2].trim() === "" || !gercekGibiMi(a[2].trim()), ".env.ornek icinde gercek gibi deger: " + a[1]);
   for (const ad of ["ANTHROPIC_API_KEY", "ANTHROPIC_MODEL", "VIDIQ_KEY", "PEXELS_KEY", "PIXABAY_KEY", "AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION", "PIPER_YOL", "PIPER_MODEL"])
     assert.match(ornek, new RegExp("^#?\\s*" + ad + "=", "m"), ad + " .env.ornek'te yok");
-  assert.doesNotMatch(ornek, /UNSPLASH_KEY\s*=/, "Unsplash kaldirildi");
+  assert.match(ornek, /^UNSPLASH_KEY=\s*$/m, "Unsplash anahtari bos yer tutucu olmali");
   const git = spawnSync("git", ["ls-files"], { cwd: KOK, encoding: "utf8", windowsHide: true });
   if (git.status === 0 && git.stdout.trim()) {
     const izlenen = git.stdout.split(/\r?\n/).filter(Boolean);
@@ -283,10 +284,11 @@ test("README: yalniz process.env'den okunan portlar (PANEL_PORT, AIINFAPP_PORT) 
 // ---------------------------------------------------------------- 4) bagimlilik cozumu
 const YAPI = JSON.parse(fs.readFileSync(path.join(KOK, "package.json"), "utf8"));
 
-test("package.json: surum/engines/test betigi var; bagimliliklar YALNIZ sdk + msedge-tts (yeni paket eklenmemis); sahte yesil icin 'test' tum test dosyalarini kapsar", () => {
+test("package.json: surum/engines/test betigi var; bagimliliklar YALNIZ sdk + msedge-tts + ws (baska yeni paket eklenmemis); sahte yesil icin 'test' tum test dosyalarini kapsar", () => {
   assert.match(YAPI.version, /^\d+\.\d+\.\d+$/);
   assert.ok(YAPI.engines && /\d/.test(YAPI.engines.node), "engines.node yok");
-  assert.deepEqual(Object.keys(YAPI.dependencies || {}).sort(), ["@anthropic-ai/sdk", "msedge-tts"]);
+  // ws: msedge-tts'in zaten getirdigi paket; Edge sesi onarimi (lib/ses-motor-edge.js) onu DOGRUDAN kullandigi icin acikca bildirilir
+  assert.deepEqual(Object.keys(YAPI.dependencies || {}).sort(), ["@anthropic-ai/sdk", "msedge-tts", "ws"]);
   assert.match(YAPI.scripts.test, /node --test/);
   assert.match(YAPI.scripts.test, /test\/\*\*\/\*\.test\.js/, "test betigi test/**/*.test.js desenini icermeli");
   const testler = TUM.filter(y => /\.test\.js$/.test(y) && goreli(y).startsWith("test/")).map(goreli);

@@ -8,12 +8,13 @@
 //   node video-seslendir.js <video.mp4> <senaryo.txt> [cikti.mp4]
 //
 // Secenekler:
-//   --ses tr-TR-AhmetNeural     erkek (varsayilan) · tr-TR-EmelNeural kadin
+//   --ses tr-TR-AhmetNeural     erkek (varsayilan) · tr-TR-EmelNeural kadin · voxcpm:tok_anlatici (yerel VoxCPM2)
 //   --hiz +0%                   konusma hizi
 //   --orijinal 0.12             orijinal sesin seviyesi (0 = tamamen kapat)
 //   --altyazi 0                 altyaziyi gomme
 //   --punto 22                  altyazi boyutu
-//   --motor otomatik|edge|azure|piper   ses motoru (varsayilan otomatik: Edge, olmazsa yedek)
+//   --motor otomatik|edge|azure|piper|voxcpm|sistem   ses motoru (varsayilan otomatik: Edge, olmazsa yedek;
+//                               sistem = isletim sistemi sesi, robotik, yalniz Edge tumden duserse kendiliginden secilir)
 //   --srt                       altyazi SRT'sini de <cikti>.srt olarak kaydet
 //
 // SENARYO DOSYASI: duz metin, paragraflar bos satirla ayrilir.
@@ -95,10 +96,11 @@ async function ana(argv, secenek) {
     throw new ortak.OrtakHata("orijinal_gecersiz", "--orijinal 0 ile 1 arasında olmalı.", { cikis: 2 });
   if (!Number.isFinite(PUNTO) || PUNTO < 8 || PUNTO > 72)
     throw new ortak.OrtakHata("punto_gecersiz", "--punto 8 ile 72 arasında olmalı.", { cikis: 2 });
-  const dil = /^[a-z]{2}[-_]/i.test(SES) ? SES.slice(0, 2).toLowerCase() : "en";
+  // dil: Edge adinin onekinden (tr-TR-...), VoxCPM sesinin ("voxcpm:<ad>") kartindan
+  const dil = require("./lib/ses-uret.js").sesDili(SES).toLowerCase();
 
   const env = ek.env || ortak.envOku;
-  const sira = M.motorSirasi(MOTOR, env, ek.enjekte);
+  const sira = M.motorSirasi(MOTOR, env, ek.enjekte, SES);
 
   uyari("Bu araç yalnızca KENDİ videoların ya da kullanma iznin olan videolar içindir; başkasının videosunu izinsiz seslendirip yeniden yüklemek telif ihlalidir.");
   uyari("Yapay (sentetik) ses kullanıyorsun; YouTube Studio'da gerekiyorsa 'değiştirilmiş/sentetik içerik' kutusunu işaretle.");
@@ -131,7 +133,7 @@ async function ana(argv, secenek) {
       let sonHata = null;
       for (const adi of (motorAdi ? [motorAdi] : sira)) {
         let motor;
-        try { motor = M.motorOlustur(adi, { ses: SES, hiz, dil, env, enjekte: ek.enjekte }); }
+        try { motor = M.motorOlustur(adi, { ses: SES, hiz, dil, env, enjekte: ek.enjekte, log, uyar: uyari }); }
         catch (e) { sonHata = new ortak.OrtakHata("motor_hata", e.message, { cikis: 2, cozum: "'" + adi + "' ayarlarını kontrol et." }); continue; }
         const parcalar = [], dusen = [];
         let ardisik = 0;
@@ -158,6 +160,13 @@ async function ana(argv, secenek) {
         }
         try { motor.kapat(); } catch (e) { /* yoksay */ }
         if (!dusen.length) { motorAdi = adi; return parcalar; }
+        // Kalite dusuren son care (sistem sesi, robotik) KISMI basari varken secilmez: tek tuk paragraf gecici dustu diye
+        // tum anlatim robotik sesle okunmaz (ses-uret.js ile ayni kural). Yalniz motor tumden coktuyse sisteme gecilir.
+        const denenen = motorAdi ? [motorAdi] : sira;
+        if (denenen[denenen.indexOf(adi) + 1] === "sistem" && parcalar.length)
+          throw new ortak.OrtakHata("paragraf_dustu", "Paragraf " + dusen.join(", ") + " seslendirilemedi", { cikis: 4,
+            cozum: "Bağlantını kontrol edip tekrar dene. İşletim sistemi sesine (robotik, kalite düşer) kendiliğinden geçilmedi; " +
+              "servis düzelmezse tümünü o sesle yapmak için: --motor sistem" });
         sonHata = new ortak.OrtakHata("paragraf_dustu", "Paragraf " + dusen.join(", ") + " seslendirilemedi", {
           cikis: 4, cozum: "Bağlantını kontrol edip tekrar dene (paragrafı kısaltmak da yardımcı olabilir)." });
         if (adi !== sira[sira.length - 1] && !motorAdi) log("'" + adi + "' motoru başarısız; TÜM iş sıradaki motorla baştan yapılıyor.");
@@ -250,9 +259,9 @@ async function ana(argv, secenek) {
               "PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,MarginV=48'");
     }
 
-    // SES SEVIYESI: loudnorm -16 LUFS (YouTube/TikTok ses seviyesi). loudnorm cikisi 192 kHz'e
+    // SES SEVIYESI: loudnorm -14 LUFS (YouTube/TikTok/Shorts/Reels standardi, lib/ses-denge.js). loudnorm cikisi 192 kHz'e
     // yukseltir; aresample + -ar ile 48 kHz'e geri alinir (ffprobe ile dogrulandi).
-    const SON_SES = "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000";
+    const SON_SES = "loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000";
     const args = ["-i", VIDEO, "-i", anlatim];
     if (sesVar && ORIJINAL > 0) {
       args.push("-filter_complex",

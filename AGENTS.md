@@ -5,6 +5,7 @@ Bu depo iki iş yapar. Kullanıcı bir istek yazar, sen aşağıdaki akışı **
 kendin seç. Yalnızca kılavuzun "kullanıcıya sor" dediği yerlerde ya da konu/tarif hiç yoksa tek kısa soru sor.
 
 1. **YouTube / Shorts / Reels / TikTok videosu**: konudan bitmiş MP4 + altyazı + kapak + yayın paketi.
+1d. **Kodla film (cinecode)**: kredisiz kısa film, belgesel, reklam, müzik videosu (`.claude/skills/cinecode`).
 2. **AI influencer (Ai Infapp)**: sanal bir insan yaratıp kilitler, her istemde aynı kimliği korur;
    sahne, prompt, görsel ve paylaşım metni üretir. Ayrıca Etsy baskı tasarımı, fotoroman, reklam görseli.
 
@@ -34,6 +35,11 @@ bu konularda soru gelirse PDF'lerin masaüstünde olduğunu hatırlat.
 - Her şey yalnızca `127.0.0.1`'de çalışır. Dışarı açma.
 - Geçici dosyaları (istek gövdeleri vb.) depo köküne değil sistem geçici klasörüne yaz.
 
+**Güncelleme:** kullanıcı "Otopilot'u güncelle" derse `npm run guncelle` çalıştır. Komut yerel değişiklik varsa durur ve hiçbir şey
+silmez; mesajını kullanıcıya aynen aktar, `git stash` ya da commit önerisini kullanıcı onaylamadan UYGULAMA. Çıkış kodları: `0` tamam ya da
+zaten güncel, `2` elle müdahale gerek (ZIP ile indirilmiş, git yok, yerel değişiklik, dal ayrışmış), `3` internet/GitHub (30 sn bekleyip en çok
+2 kez tekrar dene), `5` disk. Sonunda sürümü ve CHANGELOG başlığını kullanıcıya söyle; panel açıksa yeniden açmasını hatırlat.
+
 ## Para vermeden başla (anahtar gerekmez) ve anahtarlar
 
 Kullanıcının hiç parası/anahtarı yoksa da bu depo çalışır; en azından ilk videoyu ve ilk karakteri üretebilirsin.
@@ -42,15 +48,16 @@ Aşağıdakilerin hepsi anahtarsız ve ücretsizdir (hepsi gerçek bir işte den
 | İş | Ücretsiz yol | Not |
 |---|---|---|
 | Senaryo | **sen (ajan) yazarsın** | Claude/vidIQ anahtarı gerekmez |
-| Görsel (video) | Wikimedia Commons, Openverse, NASA | lisans süzülür, atıf `ATIF.txt`'e yazılır |
-| Ses | Edge sesli okuma (`seslendir.js`) | resmî API değil, ticari hakkı belirsiz; yerel alternatif Piper (internetsiz, `.env.ornek`) |
+| Görsel (video) | Wikimedia Commons, Openverse, NASA; sanat/tarih sahnelerinde ayrıca The Met, Art Institute of Chicago, Cleveland, Rijksmuseum (CC0 / kamu malı) | lisans süzülür, atıf `ATIF.txt`'e yazılır |
+| Ses | Edge sesli okuma (`seslendir.js`); Edge çalışmazsa işletim sisteminin sesi (`--motor sistem`, kurulum yok) | Edge resmî API değil, ticari hakkı belirsiz ve zaman zaman kapanır (Ekim 2026'da `Unexpected server response: 200`); `otomatik` sırada sistem sesi en sonda otomatik devreye girer. Daha iyi yerel ses: VoxCPM2 / Piper |
+| Doğal Türkçe ses (isteğe bağlı) | yerel VoxCPM2: `sesler/voxcpm2/` içindeki 14 hazır yapay ses | ekran kartı ister (NVIDIA ≥4 GB); kurulum aşağıda "Yerel VoxCPM2 sesi" |
 | Kurgu | ffmpeg (yerel) | |
 | AI influencer görseli | Pollinations (Ai Infapp varsayılanı) | küçük, filigranlı, ara sıra yavaş/`402`; tam ücretsiz ve sınırsız seçenek: kendi bilgisayarında AUTOMATIC1111/Forge ya da ComfyUI (GPU ister) |
 | Karakter, sahne, prompt, paylaşım metni | yerel, API yok | |
 | Etsy tasarımı, reklam, fotoroman sayfası | yerel vektör, API yok | PNG/PDF için Chrome ya da Edge |
 
 **Ücretsiz kayıtla kaliteyi artıran anahtarlar** (hepsi isteğe bağlı; ücretsiz kademelerin sınırları değişir, kayıt sayfasından doğrula):
-Pexels ve Pixabay (daha isabetli stok görsel: `PEXELS_KEY`, `PIXABAY_KEY`), Cloudflare Workers AI / Together / Hugging Face (AI görsel:
+Pexels, Pixabay, Unsplash, Smithsonian (daha isabetli stok görsel: `PEXELS_KEY`, `PIXABAY_KEY`, `UNSPLASH_KEY`, `SMITHSONIAN_KEY`, `EUROPEANA_KEY`), Cloudflare Workers AI / Together / Hugging Face (AI görsel:
 `CF_ACCOUNT_ID`+`CF_API_TOKEN`, `TOGETHER_KEY`, `HF_TOKEN`), Leonardo (günlük ücretsiz kredi, Ai Infapp sağlayıcısı), vidIQ (ücretsiz planda kredi verir; aşağıdaki "vidIQ ile video üret").
 Claude (Anthropic) anahtarı ücretlidir; gerekmez, çünkü senaryoyu sen yazarsın.
 
@@ -74,6 +81,7 @@ node yeni-is.js <is> --baslik "Başlık" --dil en --format short
 - Kanal adı: kullanıcı verdiyse `--kanal`. Vermediyse `uretim/<is>/konu.json` içinde `"intro": 0, "outro": 0, "markaKose": 0`
   yap (aksi hâlde videoya "KANALIM" yazısı basılır).
 - `yeni-is.js` çıktısı "sıradaki adım: senaryo-claude.js" der; anahtar yoksa o adımı atla, senaryoyu kendin yaz.
+- Senaryoyu yazdıktan sonra `node ai-kalip-kontrol.js <is>` çalıştır (ücretsiz, 10 dil): "oyun değişti", "Here's the thing" gibi yapay zekâ kalıplarını gösterir; bulduklarını somut gerçekle (araç adı, rakam, ne değişti) yeniden yaz. İlk cümle için kalıplar: `node ai-kalip-kontrol.js --kancalar tr`. Yazım ve çekim kuralları (tek dönüş, %30 kes, somutluk testi, bir ana kamera hareketi): `docs/YAZIM-VE-CEKIM-REHBERI.md`.
 
 **Senaryoyu SEN yaz** (anahtar gerekmez) ve şu dosyaya kaydet: `uretim/<is>/Voice/SESLENDIRME-TAM-METIN.txt`
 - Yalnızca okunacak düz anlatım metni. Başlık, sahne yönergesi, köşeli parantez, emoji YOK.
@@ -82,29 +90,65 @@ node yeni-is.js <is> --baslik "Başlık" --dil en --format short
   İlk cümle kanca olsun, son cümle takip çağrısı. Doğru bilgi yaz; emin olmadığın rakam/iddiayı yazma.
 - (Claude/vidIQ anahtarı varsa alternatif: `node senaryo-claude.js <is>`; ücretlidir, önce maliyeti söyle.)
 
+**Görsel aramalarını da SEN yaz:** senaryodan hemen sonra, `gorsel-bul.js`'ten önce `uretim/<is>/Voice/ARAMALAR.txt` dosyasını oluştur.
+- Senaryodaki her paragraf için bir satır yaz, sıra paragraflarla aynı olsun. Boş satırlar ve `#` ile başlayan satırlar sayılmaz. Dosyayı UTF-8 yaz.
+- Her satır **İngilizce, somut, görselleştirilebilir** bir arama olsun. Video Türkçe olsa da İngilizce yaz: kaynakların başlıkları İngilizcedir
+  (Türkçe "Dünya" araması Dünya Kupası bileti getirir).
+- Soyut ya da dolgu kelime yazma ("why", "same", "secret" olmaz). Nesne, yer, kişi ya da olay yaz: `full moon night sky`, `Galata Tower Istanbul`.
+- `|` ile 1-2 yedek arama ekleyebilirsin. Örnek: `full moon night sky | moon surface closeup` / `Earth and Moon from space` / `far side of the Moon | Luna 3 probe`.
+- Öncelik: `--sahne N --ara` > konu.json `sahneKelimeleri` > `ARAMALAR.txt` > otomatik. Satır sayısı tutmazsa ya da satır Türkçe görünürse uyarı verilir.
+
 ```bash
+node kaynak-dene.js          # görsel kaynaklarının hangisi çalışıyor? (canlı yoklama; sorun olursa önce bunu çalıştır)
 node gorsel-bul.js <is>       # ücretsiz kaynaklardan (Wikimedia, Openverse, NASA…) görsel bulur, lisans süzer
 node seslendir.js <is>        # ücretsiz Edge sesi, paragraf paragraf (+ zamanlama)
 node video-yap.js <is>        # kurgu + altyazı + kapak + yayın paketi
 ```
 
-**Görselleri KONTROL ET** (atlama): `uretim/<is>/Visuals/manifest.json` her sahne için aranan ifadeyi (`aramalar`) ve
-paragrafı (`paragraflar`) gösterir. Otomatik arama bazen alakasız çıkar (ör. "Billions" kelimesinden dizi karesi).
+**Yerel VoxCPM2 sesi (isteğe bağlı, ücretsiz, ekran kartı ister).** `sesler/voxcpm2/` içinde 14 hazır yapay ses var. 7'si Türkçe:
+`tok_anlatici`, `belgesel_hanim`, `cekici_spiker`, `gizemli_bilge`, `haber_spikeri`, `masal_cadisi`, `yasli_bilge`. 7'si yerli anlatıcı:
+`anlatici_en`, `anlatici_de`, `anlatici_es`, `anlatici_fr`, `anlatici_ja`, `anlatici_ru`, `anlatici_zh`. Lisans Apache-2.0
+(kaynak: https://github.com/alexturkey/voxcpm2-turkce-ses-tasarimi). Motor bu depoda yok; bir kez ve **kullanıcı onayıyla** kurulur
+(NVIDIA ekran kartı ≥4 GB, 64-bit Python 3.10–3.13, ~10 dk, ~3,7 GB indirme):
+`git clone https://github.com/alexturkey/voxcpm2-turkce-ses-tasarimi.git C:\voxcpm2`, o klasörde
+`powershell -NoProfile -ExecutionPolicy Bypass -File scripts\kur.ps1 -Kok C:\vox` (son satır `KURULUM_OK` olmalı), sonra `.env` dosyasına
+`VOXCPM_KOK=C:\voxcpm2` (klonlanan klasör; `-Kok` klasörü değil). Kontrol: `node seslendir.js --liste-sesler`.
+Kullanım: `node seslendir.js <is> --ses voxcpm:tok_anlatici`, `--motor voxcpm` (dile göre varsayılan ses) ya da `konu.json` içinde
+`"ses": "voxcpm:anlatici_en"`. Kurulu değilken `--motor voxcpm` çıkış `2` ve kurulum adımlarını verir; `otomatik` motor Edge'e düşer.
+Yavaştır (eski kartta 1 sn ses ≈ 2 sn) ve aynı anda tek iş çalıştırır. Türkçe ve İngilizce sayılar yazıya çevrilir; diğer dillerde sayıları
+yazıyla yaz. Sesler yapaydır, gerçek kişi taklidi değildir; yayında yapay zekâ sesi olduğunu belirtmesini öner.
+
+**Görselleri KONTROL ET** (atlama): `uretim/<is>/Visuals/manifest.json` her sahne için aranan ifadeyi (`aramalar`), aramanın
+nereden geldiğini (`aramaKaynagi`) ve paragrafı (`paragraflar`) gösterir. `"alakaZayif": true` işaretli görseller, başlığı aramayla eşleşmediği
+hâlde sahne boş kalmasın diye alınmıştır. Otomatik arama bazen alakasız çıkar (ör. "Billions" kelimesinden dizi karesi).
 Zayıf sahneyi düzelt, sonra `video-yap.js` çalıştır:
 
 ```bash
 node gorsel-bul.js <is> --sahne 3 --ara "far side of the moon"
 ```
 
-Görüntü okuyabiliyorsan `Visuals/NNN-*/01.jpg` dosyalarına bak. Tüm videoyu yeniden kurmak için `video-yap.js <is> --yeniden`.
+İstersen sahnelere stok video klibi ekle (`PEXELS_KEY` ya da `PIXABAY_KEY` varsa): `node video-bul.js <is>`, sonra `node video-yap.js <is>`; anahtar yoksa açık bir mesajla durur. Görüntü okuyabiliyorsan `Visuals/NNN-*/01.jpg` dosyalarına bak. Tüm videoyu yeniden kurmak için `video-yap.js <is> --yeniden`.
 
 **Hata olursa** (mesaj Türkçe ve çözümü söyler): çıkış `3` (ağ/servis) → 30 sn bekleyip aynı komutu en çok 2 kez yeniden çalış, ilerleme korunur;
 `4` (yetersiz sonuç) → mesajdaki çözümü uygula (görsel azsa `--sahne N --ara`; paragraf düştüyse `seslendir.js`'i yeniden çalıştır);
-`2` (girdi/ayar) → dosyayı düzelt; `5` disk; `6` aynı iş zaten çalışıyor; `7` maliyet sınırı. Tam liste: `README.md` "Panelsiz kullanım".
+`2` (girdi/ayar) → dosyayı düzelt; `5` disk ya da bellek; `6` aynı iş zaten çalışıyor; `7` maliyet sınırı. Tam liste: `README.md` "Panelsiz kullanım".
+Bellek hatasında (`bellek_yetersiz`, "Cannot allocate memory") render o adımı düşük bellek moduyla zaten bir kez kendiliğinden denemiştir:
+kullanıcıya açık programları kapatmasını söyle, `.env`'e `RENDER_DUSUK_BELLEK=1` (yine olmazsa `2`) yaz ve aynı `video-yap.js` komutunu
+tekrar çalıştır; biten ara dosyalar korunur.
 Ayar alanlarının tam listesi: `KONU-JSON.md` (geçiş, müzik, altyazı biçimi, ses vb. `uretim/<is>/konu.json`).
+
+**Türkçe telaffuz paketi (kendiliğinden açık):** `dil: tr` seste YouTube, Shorts, vidIQ, ChatGPT, Claude, iPhone, podcast, AI/YZ gibi
+130'u aşkın yabancı ad Türkçe söylenişiyle okunur (`data/telaffuz-tr.json`), paragraf başındaki selam "Merhaba," → "Merhaba!" olur
+("Merhaba, ben Efe." → "Merhaba! Ben Efe."; ardından "önce" geliyorsa dokunulmaz). Yalnız sese
+gider; senaryoya ve altyazıya "Yutup" gibi uydurma yazım KOYMA, adları doğru yaz. Senaryodan sonra, seslendirmeden önce
+`node diksiyon.js <is>` çalıştır (VoxCPM sesinde `--motor voxcpm`): okunuşu olmayan yabancı kelimeyi `konu.json` `okunus` sözlüğüne ekle
+(yerleşik girişi de ezer), uzun cümleyi böl, şapka belirsizliğini (hala/hâlâ, kar/kâr) senaryoda düzelt, VoxCPM'de cümle başı "Önce"yi
+anlamı koruyarak yeniden kur, `ek-uyumu` uyarısında (`API'ye` → seste "Ey Pi Ay'ye") eki ya da ekli hâli `okunus`'a ekle. Kullanıcı
+`okunus` anahtarı yerleşik girişle aynıysa (`"youtube"` / `"YouTube"`) o adın tüm yazılışlarına uygulanır. Çıkış `1` = risk var (uyarı), `0` = temiz. Kapatmak: `"telaffuzPaketi": false` ya da `seslendir.js --telaffuz-kapali`.
 
 Seslendirmede `403` alırsan: `npm install msedge-tts@latest --ignore-scripts --no-save` çalıştır (Microsoft'un ücretsiz sesi
 zaman zaman kural değiştirir), `seslendir.js`'i yeniden başlat; tamamlanan paragraflar tekrar üretilmez.
+Edge `Unexpected server response: 200` ile düşerse bu paket güncellemesiyle düzelmez (Microsoft el sıkışmayı reddediyordur): `node seslendir.js <is> --motor sistem` ile işletim sistemi sesini kullan, tamamlanan paragraflar korunur; `otomatik` motor bunu zaten kendiliğinden yapar.
 
 **Bitince kullanıcıya şunları ver** (dosya yollarıyla):
 - `uretim/<is>/Videos/<is>.mp4`, `<is>.srt`, `<is>-kapak.jpg`
@@ -113,6 +157,61 @@ zaman zaman kural değiştirir), `seslendir.js`'i yeniden başlat; tamamlanan pa
   Ücretsiz Edge sesi resmî bir API değildir, ticari kullanım hakkı belirsizdir; gelir getiren kanal için `seslendir.js --motor azure` (kendi Azure anahtarıyla) önerilir.
 
 Süre: 40 sn'lik kısa videoda toplam birkaç dakika (görsel ~1-2 dk, ses ~1 dk, kurgu ~30 sn).
+
+## 1b. Film / kısa dizi (karakterli, diyaloglu, AI klipli)
+
+Anlatımlı video yerine karakterlerin konuştuğu dikey kısa dizi için `film.js` (ayrıntı dosyanın başındaki yorumda):
+
+```bash
+node film.js yeni <dizi> --ad "Dizi Adı"     # bibliya.json (karakter, ses, görünüm) + bolum-001.json örneği; ikisini kullanıcının fikrine göre YAZ
+node film.js ses <dizi> 1                     # diyalog satırları karakter seslerinden (ücretsiz motorlar)
+node film.js klipler <dizi> 1                 # Voice/KLIPLER.txt; sonra: node vidiq-klip.js <dizi>-b001 --butce <kredi>  (kuru çalışma; KREDİ HARCAR, onay al)
+node film.js kur <dizi> 1                     # klipler + ses + altyazı -> uretim/<dizi>/bolum-001.mp4
+```
+
+Karakter yüzü her klipte hafifçe kayar (AI video sınırı): `gorunum` alanını her istemde tekrar eder, aynı karakterin referans görselini Ai Infapp'ten alıp sağlayıcıya ilk kare olarak verebilirsin. Dudak senkronu için ÖNERİLEN yol bulut: `.env`'e `FAL_KEY` (fal.ai, ücretli) yazılınca `node film.js kur <dizi> 1 --dudak` fal.ai LatentSync'i kullanır (gerçek para harcar: kullanıcıya söyle). Yerel alternatif MuseTalk bağlayıcısı hazır (`dudak-musetalk.js`, `.env.ornek` bölümü "FILM"): kullanıcı MuseTalk'ı kurup `MUSETALK_KOK` ve `DUDAK_KOMUT` yazarsa `node film.js kur <dizi> 1 --dudak` çalışır; önce `node dudak-musetalk.js --kontrol` (RTX 50 kartlarda torch >= 2.7 cu128 ayrı ortam gerekir). Klip yokken `--yer-tutucu` yalnız deneme içindir. 100 bölüme baştan girme: önce 3 bölümlük pilotla maliyet ve kaliteyi ölç.
+
+## 1c. AI Stüdyo — ne isterse: metinden video, fotoğraftan video, çizgi film/anime/3D/kil, kendi videosunu dönüştürme (vidIQ kredisiyle)
+
+Kullanıcı bir AI video istediğinde (yazdığı istemden, kendi fotoğraflarından ya da kendi videosundan; çizgi film, anime, 3D, kil animasyon, gerçekçi ya da stilsiz `serbest`) `studyo.js`. Fotoğraf gerekmez: `node studyo.js sahne <ad> "istem"` yalnız metinden sahne ekler (istemi İngilizce yaz):
+
+```bash
+node studyo.js stiller                                   # cizgi-film, anime, 3d-animasyon, kil, suluboya, cizgi-roman, gercekci
+node studyo.js yeni <ad> --stil cizgi-film --oran 9:16    # uretim/<ad>/girdi/ açılır: fotoğrafları/videoları buraya KOPYALA (ad sırası = film sırası)
+node studyo.js tara <ad>                                  # girdi/'deki dosyalar sahne olur; uretim/<ad>/studyo.json'da her sahnenin "hareket"ini (İngilizce) SEN yaz
+node studyo.js uret <ad> --butce 400                      # KURU ÇALIŞMA: maliyeti yazar, kredi harcamaz
+node studyo.js uret <ad> --butce 400 --onay               # kullanıcı maliyeti onaylayınca: klipleri üretir (vidIQ kredisi)
+node studyo.js kur <ad> [--muzik muzik.mp3] [--altyazisiz]  # klipleri birleştirir -> uretim/<ad>/Videos/<ad>.mp4 (anlatım varsa seslendirir + altyazı yakar, ÜCRETSİZ)
+```
+
+- Sahne modu (`studyo.json` → `sahneler[].mod`): `referans` fotoğrafı karakter referansı yapar ve sahneyi seçilen stilde yeniden çizer (stilli işlerde varsayılan); `ilk-kare` fotoğrafı olduğu gibi canlandırır (`gercekci` ve `serbest` varsayılanı); `metin` fotoğrafsız, istemden video; `video` + `"url"` kullanıcının kendi videosunu (herkese açık https MP4 ya da YouTube linki) hareketini koruyarak stile çevirir (vidIQ'ya yükleme ücretsiz; yalnız `minimax-h3` / `gemini-omni-flash`). `girdi/` içindeki yerel videodan `"an"` saniyesindeki kare alınır.
+- **Yönetmen modu (sinematik çekim):** sahnede `plan`, `kameraHareketi`, `lens`, `isik` kodları (listeler `studyo.js` içindeki `YONETMEN`; örn. `"plan":"yakin","kameraHareketi":"yaklas","lens":"85","isik":"altin"`) isteme sinema dilinde eklenir. Hazır dizi/film çekim listesi: `node studyo.js sablonlar`, `node studyo.js sablon <ad> romantik|aksiyon|tanitim|gerilim|yesilcam|bilimkurgu|fantastik|aksiyon-filmi|simetri|kesintisiz|gerilim-teknigi [--foto erkek.jpg,kadin.jpg,cift.jpg]`. Tür paketleri (8 çekim) kendi kamera görünümünü ve kadro dağıtımını (`kisi`: 0 ilk foto, 1 ikinci, 2 ikisi birlikte) getirir; `--anlatimli` ile film paketlerine işin diline göre (tr/en) düzenlenebilir anlatım taslağı da eklenir. Sahne geçişi: `"gecis": "cozul|siyah|beyaz|kaydir|whip|silme|daire|zoom|piksel|radyal|bulanik|kes"` (ücretsiz, anlatım zamanlarını kaydırmaz); kamera görünümleri: `temiz|sinema|film|vhs|super8|yumusak-lens|kamkorder`. `"kamera": "sinema|film|temiz"` (varsayılan sinema) filme tane/vinyet/renk uygular; AI klip "AI gibi" durursa bunu kullan, gerçekçilik için `ilk-kare` modunda gerçek fotoğraftan başla.
+- **Gerçek lens profilleri (Lensfun, açık kaynak, ücretsiz):** `node studyo.js lens-kur` (bir kez, ~5 MB, CC BY-SA veritabanı; kullanıcıya söyle), `node studyo.js lens-ara iphone` (kameralar) / `node studyo.js lens-ara "canon 50mm" --tur lens` (lensler), `node studyo.js lens <ad> --kamera "Apple iPhone XS" --lens "iPhone XS back camera 4.25mm" [--odak 4.25 --diyafram 1.8 --duzelt | --kaldir]`. `kur` profili filme "lens karakteri" olarak ekler (distorsiyon, vinyet, renk sapması); `--duzelt` kullanıcının kendi gerçek videosundaki bozulmayı düzeltir. Veritabanında ~1060 kamera ve ~1580 lens var; telefonlarda yalnız bazıları (ör. iPhone XS, Huawei, Samsung Galaxy S21 lensi, Nokia, LG, GoPro, DJI); olmayan modeli uydurma, `lens-ara` ne gösteriyorsa onu söyle.
+- **Yüz değiştirme (çift/kişi fotoğrafı, yerel FaceFusion, ücretsiz):** `node studyo.js yuz <ad> --sablon yuz/poz.jpg --kisi yuz/sol.jpg,yuz/sag.jpg --riza` (dosyalar `uretim/<ad>/girdi/yuz/` içinde; kişiler poz fotoğrafındaki yüzlerle SOLDAN SAĞA eşleşir). `--riza` olmadan çalışmaz: yalnız kullanıcının kendi yüzü ya da yazılı izin verdiği kişiler; bunu sormadan varsayma. Önce `.env`'de `FACEFUSION_KOK` (kendi `.venv`'li FaceFusion klasörü) olmalı; yoksa mesaj kurulum adımını söyler, kullanıcı onayı olmadan GB'lık kurulum yapma. Poz fotoğrafını internetten (Google vb.) toplama; telifsiz ya da kullanıcının kendi çekimi olsun. Çıktı yeni bir `ilk-kare` sahnesidir; `uret` ile canlandırılır.
+- **3B model bul (ücretsiz, açık lisans):** `node model-bul.js ara "<ne>" [--kaynak polyhaven,nasa,smithsonian,sketchfab]`, `node model-bul.js indir <no> [--is <stüdyo-işi>]` (modeli işin `girdi/` klasörüne koyar, atfı `ATIF.txt`'e yazar; sonra `node studyo.js 3b <ad> urun --glb <dosya>.glb`). ~520 Poly Haven, ~260 NASA, Smithsonian müze taramaları, Sketchfab CC0/CC BY. Draco sıkıştırmalı modeller (Smithsonian) çizilir.
+- **3B sahne (ücretsiz, vidIQ kredisi harcamaz):** `node studyo.js 3b <ad> urun|dunya|karakter [--baslik ".."] [--alt ".."] [--renk "#c8f53a"] [--on-ayar yaratici|ogretmen|sef|koc|analist] [--sure 5] [--anlatim ".."]`; `node studyo.js 3b-sablonlar`. `kur` bu sahneleri kendi Chrome/Edge'inde çizer (three.js; ilk kullanımda npm ile ~30 MB iner: kullanıcıya söyle, `node studyo.js 3b-kur` ile önceden de indirilir). `karakter` şablonunda ağız, o sahnenin `anlatim` metninin sesinden oynar: konuşan 3B sunucu için `--anlatim` ver. Ürün platformuna kendi 3B modelin: `.glb` dosyasını `uretim/<ad>/girdi/` içine koy ve `node studyo.js 3b <ad> urun --glb urun.glb` (panelde "Kendi 3B modelin"); model verilmezse varsayılan cilalı düğüm çizilir, dosya değişince sahne yeniden çizilir; dünya şablonunda şehirler `parametre.noktalar: [[enlem, boylam], ...]`. Çıktıyı gözle kontrol et (`Videos/<ad>-kontrol.jpg`).
+- Anlatım: sahnede `"anlatim": "metin"` (≤600 karakter) varsa `kur` onu ücretsiz seslendirir (Edge, olmazsa sistem sesi), altyazı olarak yakar, sahne anlatımdan kısaysa klibi döngüler; dil `studyo.json` → `"dil": "tr"` (varsayılan `en`), isteğe bağlı `"ses"`. `--muzik` anlatımın altına kısık karışır. Anlatımda yapay zekâ kalıbı (ör. "oyun değişti") varsa `kur` uyarır: yeniden yaz. Sesli film otomatik -14 LUFS'a eşitlenir, `Videos/<ad>-kontrol.jpg` 12 karelik kontrol sayfasıdır (yayından önce bak). Yayında "yapay zekâ sesi/içeriği" belirtmesini öner.
+- `"karakter": ["yuz.jpg"]` tüm referans sahnelerine aynı yüzü ekler (tutarlılık). `"model"`, `"cozunurluk"`, `"sure"` dosyada değiştirilebilir; varsayılan en ucuzu `minimax-h3` 768p (~20 kredi/sn, 6 sn sahne ≈ 120 kredi).
+- Aynı fotoğraf+istem ikinci kez ücretli üretilmez; fotoğraf ya da mod değişirse yeni çekimdir. İlk kullanımda tek sahneyle başla.
+- **İzin:** yalnız kullanıcının kendi fotoğrafı/videosu ya da yazılı izin verilen kişi. Ünlü, başkasının fotoğrafı, telifli film/dizi sahnesi YOK (kullanıcının kendi çekimi olmalı). Yayında yapay zekâ ürünü olduğunu belirtmesini öner.
+
+## 1d. Kodla film (cinecode): kısa film, belgesel, reklam, müzik videosu, açıklayıcı (ÜCRETSİZ, kredi harcamaz)
+
+Kullanıcı "kısa film", "kodla film", "animasyon", "belgesel", "reklam filmi", "müzik videosu", "şarkıma klip", "bunun gibi bir video" derse ya da AI video kredisi olmadan film isterse:
+**`.claude/skills/cinecode/SKILL.md` yeteneğini kullan** (Claude Code bu klasörü kendiliğinden tanır; Codex ve diğer ajanlar SKILL.md'yi okuyup uygular).
+Her kare başsız Chrome'da koddan çizilir (three.js 3B, 2B, kil, kâğıt, piksel, hareketli grafik…), ses Web Audio ile kodda ya da açık lisanslı kayıtlardan, ses -14 LUFS'a ayarlanır; bitmiş MP4 + kalite raporu. Hızlı mod (tek `film.html`, ~3 dk'ya kadar) ve Film modu (stil karesi, animatik, 3B, katmanlı ses; uzun belgeseller).
+
+- **3B model lazımsa** (gemi, uçak, uzay aracı, mobilya, müze eseri): `node model-bul.js ara "ship"` → `node model-bul.js indir <no>` (açık lisanslı: Poly Haven CC0, NASA, Smithsonian, Sketchfab CC0/CC BY; atıf `KAYNAK.txt`'te hazır, açıklamaya ekle; Sketchfab indirmesi ücretsiz `SKETCHFAB_TOKEN` ister). İnen `uretim/_modeller/<ad>/model.glb` cinecode filminin three.js sahnesine `GLTFLoader` (+ Draco çözücü: `three/examples/jsm/libs/draco/gltf/`) ile yüklenir. Arama İngilizce; modelin gerçek olduğunu (Atatürk, bir tarihî olay gibi konularda) UYDURMA: bulunamazsa sahneyi başka görsel dille (belge, harita, daktilo yazısı, ışık) kur.
+- Gerekenler: Node 22+, **Python 3.9+**, ffmpeg, Chrome/Edge. Python yoksa kullanıcıya söyle ve onayla kur (`winget install Python.Python.3.12`). Windows'ta `python3` yerine `python` çalışır.
+- Filmler depo kökünde `Filmler/` (ya da `Films/`) altına açılır; bu klasörler repoya girmez.
+- Kitin bekçi kancaları yalnız yetenek Claude Code oturumunda devreye girince çalışır; dışarıda `GUARD OFF` der (film yine çalışır).
+- Dış ses isteğe bağlıdır (kullanıcının Gemini/ElevenLabs anahtarı ya da ücretsiz Türkçe ses); anahtar yoksa film yine sesli olur (müzik ve efektler kodda).
+- Kaynak: [cinecode](https://github.com/sarpstar/cinecode) (Sarp Yıldız, MIT; stil kütüphanesinin bir kısmı LemoLab, MIT). En yeni sürüm: `npm run cinecode-guncelle`. Ayrıntı ve atıf: `docs/ATIF-cinecode.md`.
+
+**SES (tüm videolar için kural, hangi hattı kullanırsan kullan):**
+- **Seviye standardı: -14 LUFS** (entegre), gerçek tepe ≤ -1,5 dBTP; iki geçişli ölçüm. Tek kaynak `lib/ses-denge.js`; yeni bir betik ses seviyesini kendi kafasından seçmez.
+- **Ses efekti kuralı: whoosh/swoosh/riser/boom/vuruş YOK.** Her geçişe efekt koymak videoyu "yapay zekâ gibi" gösterir. Efekt gerekiyorsa yalnız ince bir `tik` ya da `din`, seyrek (en az 1,5 sn arayla, dakikada en çok 6), yalnız anlamlı anlarda (başlık, rakam, bölüm geçişi); çoğu videoda hiç efekt koymamak daha iyidir. Otopilot hattında `konu.json` → `sesEfektleri` (bkz. `KONU-JSON.md`); efektler konuşmanın ~12 dB altında karışır ve konuşurken kısılır. **cinecode filmlerinde de aynı kural geçerlidir:** `references/sound.md` whoosh önerse bile Otopilot'ta kullanma.
+- **Bitmiş videoda kontrol ve düzeltme:** `node araclar/ses-denge.js analiz video.mp4` (seviye, tepe, LRA ve konuşmanın üstüne çıkan patlamalar zaman damgalı); `node araclar/ses-denge.js duzelt video.mp4` patlamaları tutar ve -14 LUFS'a hizalar (girdiyi bozmaz, `-dengeli` kopya yazar). Teslim etmeden önce `analiz` çalıştır; sorun çıkarsa düzelt.
 
 ## 2. AI influencer (Ai Infapp) — HTTP API ile
 
@@ -153,7 +252,7 @@ Dürüstlük notları (kullanıcıya da söyle):
   sağlayıcı anahtarını bağlar (`GET /api/saglayicilar` seçenekleri gösterir, `POST /api/saglayici` bağlar). Anahtarı kullanıcıdan
   iste, ama sohbette tekrar yazma ve dosyaya kaydetme; kullanıcı isterse tarayıcıdaki **Ayarlar** ekranından kendisi girer.
 - Yüz tutarlılığı sağlayıcıya bağlıdır; ayrıntı `ai-infapp/README.md` ("Dürüst olalım").
-- Gerçek kişi, ünlü ya da marka taklidi yapma; karakter tamamen kurgusaldır. Paylaşımda yapay zekâ ürünü olduğunu belirtmesini öner.
+- Gerçek kişi, ünlü ya da marka taklidi yapma; Ai Infapp karakteri tamamen kurgusaldır. Tek istisna `araclar/klon-video/`: kullanıcının **kendi** yüzü/sesi ya da **yazılı izin verilen** kişi (izin kullanıcıda olmalı; yoksa yardım etme). Paylaşımda yapay zekâ ürünü olduğunu belirtmesini öner.
 
 Diğer stüdyolar (Etsy baskı tasarımı, fotoroman, reklam görseli): aynı sunucuda çalışır. Etsy ve fotoroman `ai-infapp/README.md`
 içindeki "Etsy" ve "Fotoroman" bölümlerinde anlatılır; reklam/grafik tasarım için `ai-infapp/src/studios/reklam/index.js`'e bak.
@@ -163,7 +262,9 @@ Uçlar `ai-infapp/server.js` ve `ai-infapp/src/studios/*/index.js` içindedir. P
 
 Bu yol **yalnızca kullanıcı isterse** kullanılır (ör. "vidIQ ile üret", "Seedance ile şu promptla klip yap", prompt verip AI video isterse).
 İstemedikçe ücretli yola girme; varsayılan, ücretsiz hattır (bölüm 1). Kullanıcının vidIQ hesabı ve vidIQ MCP bağlantısı ajanında kuruluysa
-(`vidiq_*` araçları görünür) videoyu depodaki hat yerine doğrudan vidIQ'nun araçlarıyla üretebilirsin. **Bu yol bu depoda henüz uçtan uca denenmedi:** ilk kullanımda 2-3 saniyelik tek bir klipten başla.
+(`vidiq_*` araçları görünür) videoyu depodaki hat yerine doğrudan vidIQ'nun araçlarıyla üretebilirsin. **Bu yol bu depoda henüz gerçek kredi ile uçtan uca denenmedi:** ilk kullanımda 4 saniyelik tek bir klipten başla.
+
+**Hazır araç (önerilen):** `node vidiq-klip.js <is> --butce 300` klipleri `Voice/KLIPLER.txt` dosyasından (her satır bir istem, `istem | 6` ile süre) okur, tahmini maliyeti yazar ve BAŞLATMAZ (kuru çalışma). Kullanıcı maliyeti onaylayınca `--onay` ekleyerek çalıştır; `--model`, `--cozunurluk`, `--sure`, `--oran` ayarlanabilir. Bütçe aşılmaz, aynı istem tekrar üretilmez, çıktı `uretim/<is>/Clips/` içine yazılır. Klipler inince `node klip-yerlestir.js <is>` (ücretsiz) onları `KLIPLER.txt` sırasıyla sahne klasörlerine koyar (satır i → sahne i), sonra `node video-yap.js <is> --yeniden`. Uzun videoda `--oran 16:9` (verilmezse `konu.json`'dan alınır).
 
 1. `vidiq_balance` (ücretsiz): kalan krediyi kullanıcıya söyle.
 2. Senaryo: kendin yaz (ücretsiz) ya da `vidiq_generate_script` (dakika başına 1 kredi).
@@ -180,10 +281,18 @@ vidIQ'yu depodaki betikler de kullanır (`VIDIQ_KEY`, senaryo/başlık/trend/per
 
 ## 3. Diğer
 
+- **Ücretsiz medya araçları** (`araclar/medya.js`, yalnız ffmpeg, kredi harcamaz): kullanıcının kendi konuşma kaydını/videosunu hazırlarken. `node araclar/medya.js sessizlik <dosya> [--rapor] [--esik -35] [--sure 0.4] [--pay 0.08]` sessiz boşlukları keser (önce `--rapor` ile ne keseceğini göster); `node araclar/medya.js sahneler <video> [--esik 0.3] [--en-az 1] [--kes <klasör>] [--json]` plan değişimlerini bulur / sahne sahne klip yapar; `node araclar/medya.js yukselt <resim|video> [--olcek 2|3|4]` düşük çözünürlüklü görseli büyütür (varsayılan lanczos; kullanıcı `.env`'e `REALESRGAN_KOK` yazdıysa resimde Real-ESRGAN, bu yol denenmedi). Çıkış 2 = girdi hatası. Başkasının videosunu kesip yeniden yüklemek için KULLANMA (bölüm 4).
+- **Açık kaynak kataloğu:** yeni bir açık kaynak araç eklemeden önce `docs/KAYNAKLAR.md` (lisans uyarıları dahil) ve `docs/MIMARI.md` ("Yeni araç eklemek") oku; GPL/AGPL/NC kodu kopyalama.
 - **Video indirici** (`video-indirici/`, `node video-indirici/server.js`, 4190): yalnızca kullanıcının kendi ya da izinli içeriği için.
-- **Panel** (`node panel.js`, 4173): tarayıcıdan kullanmak isteyen kullanıcı içindir; sen komut satırını kullan.
+- **Panel** (`node panel.js`, 4173): tarayıcıdan kullanmak isteyen kullanıcı içindir (AI Stüdyo sekmesi dahil); sen komut satırını kullan.
+- **W.J. Sidis video şablonu** (`araclar/sidis-video/`): gazete/daktilo kimlikli Remotion şablonu (30 dk uzun video + Shorts örneği); kurulum ve betikler `araclar/sidis-video/README.md`. Ayrı npm projesidir, ana hatta bağlı değildir.
+- **Kendi yüzün/sesinle video (yerel araçlar):** `araclar/klon-video/` — ses klonlama (VoxCPM2), FaceFusion başlatıcı, arka plan/logo yerleştirme,
+  renk eşleme, senaryo kontrolü, dudak ölçümü. Betikler tek başına çalışır; ayrıntı ve tuzaklar `araclar/klon-video/README.md`.
+  Yalnız kullanıcının kendi yüzü/sesi ya da yazılı izin; yayında "sentetik içerik" kutusu.
 
 ## 4. Kurallar
+
+- **Sorumluluk:** Bu depo ve araçları "olduğu gibi" sunulur (MIT, garanti yok). Üretilen içerikten, kullanılan yüz/ses/görselin izninden, telif ve platform kurallarından **kullanıcı sorumludur**; depo sahipleri ve katkıcılar sorumluluk kabul etmez. Kullanıcıyı bu konuda bir kez, kısaca bilgilendir.
 
 - Ücretli adım (Claude/vidIQ ile senaryo, ücretli görsel sağlayıcı) başlatmadan önce tahmini maliyeti söyle; varsayılan akış ücretsizdir.
 - `.env`, `ai-infapp/data/`, `uretim/` repoda değildir (`.gitignore`). Anahtarları sohbete, koda ya da commit'e yazma.
